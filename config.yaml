@@ -1,0 +1,7 @@
+port: "8080"
+
+db:
+  url: "postgresql://grades:1a9Fy0bNSWu8CG7oYBLEfSPyDAkAd19l@dpg-dbq7agijnfac73evse70-a.frankfurt-postgres.render.com/grades_alnt"
+
+jwt:
+  secret: "supersecretkey"
