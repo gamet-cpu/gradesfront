@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Дневник — Анализатор успеваемости</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F1E4;
+    --bg-elevated:#FFFDF7;
+    --ink:#1F2A44;
+    --ink-soft:#5B6472;
+    --line:#D8CFB8;
+    --line-strong:#C2B792;
+    --green:#2F6B4F;
+    --green-soft:#E4EFE8;
+    --red:#B5482C;
+    --red-soft:#F5E3DC;
+    --gold:#B5892E;
+    --gold-soft:#F1E6C8;
+    --shadow: 0 1px 0 rgba(31,42,68,0.06), 0 8px 24px -12px rgba(31,42,68,0.18);
+    --radius: 3px;
+  }
+  [data-theme="chalk"]{
+    --bg:#16241C;
+    --bg-elevated:#1E3225;
+    --ink:#F1EEDF;
+    --ink-soft:#AEB6A2;
+    --line:#37493C;
+    --line-strong:#4B6152;
+    --green:#7FD9A6;
+    --green-soft:rgba(127,217,166,0.12);
+    --red:#E68A6C;
+    --red-soft:rgba(230,138,108,0.12);
+    --gold:#E9C46A;
+    --gold-soft:rgba(233,196,106,0.14);
+    --shadow: 0 1px 0 rgba(0,0,0,0.3), 0 12px 28px -14px rgba(0,0,0,0.6);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    transition:background .25s ease, color .25s ease;
+    background-image:
+      repeating-linear-gradient(180deg, transparent 0 41px, var(--line) 41px 42px);
+    background-attachment:local;
+  }
+  h1,h2,h3{ font-family:'Source Serif 4', serif; font-weight:600; margin:0; letter-spacing:.2px;}
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+  .hidden{ display:none !important; }
+  a{color:inherit;}
+  button{ font-family:inherit; cursor:pointer; }
+  input, select{ font-family:inherit; }
+
+  /* ---------- Auth screen ---------- */
+  #authScreen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .authCard{
+    width:100%;
+    max-width:400px;
+    background:var(--bg-elevated);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:36px 32px 30px;
+    position:relative;
+  }
+  .authCard::before{
+    content:"";
+    position:absolute;
+    top:18px; left:50%;
+    transform:translateX(-50%) rotate(-3deg);
+    width:64px; height:64px;
+    border:2px solid var(--gold);
+    border-radius:50%;
+    opacity:.35;
+  }
+  .authBrand{
+    text-align:center;
+    margin-bottom:22px;
+  }
+  .authBrand .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    display:block;
+    margin-bottom:6px;
+  }
+  .authBrand h1{ font-size:26px; }
+  .field{ margin-bottom:16px; }
+  .field label{
+    display:block;
+    font-size:12px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .field input, .field select{
+    width:100%;
+    padding:10px 12px;
+    border:1px solid var(--line-strong);
+    border-radius:var(--radius);
+    background:var(--bg);
+    color:var(--ink);
+    font-size:14px;
+    outline:none;
+  }
+  .field input:focus, .field select:focus, button:focus-visible{
+    outline:2px solid var(--green);
+    outline-offset:1px;
+  }
+  .btn{
+    width:100%;
+    padding:11px 14px;
+    border:none;
+    border-radius:var(--radius);
+    background:var(--ink);
+    color:var(--bg-elevated);
+    font-weight:600;
+    font-size:14px;
+    letter-spacing:.02em;
+  }
+  [data-theme="chalk"] .btn{ background:var(--green); color:#0F1B14; }
+  .btn:hover{ opacity:.92; }
+  .btn.secondary{
+    background:transparent;
+    color:var(--ink);
+    border:1px solid var(--line-strong);
+  }
+  .btn.danger{ background:var(--red); color:#fff; }
+  .authSwitch{
+    text-align:center;
+    margin-top:16px;
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+  .authSwitch button{
+    background:none; border:none; color:var(--green); font-weight:600; text-decoration:underline;
+    font-size:13px; padding:0;
+  }
+  .formMsg{
+    font-size:13px;
+    margin-top:10px;
+    padding:8px 10px;
+    border-radius:var(--radius);
+    display:none;
+  }
+  .formMsg.show{ display:block; }
+  .formMsg.error{ background:var(--red-soft); color:var(--red); }
+  .formMsg.ok{ background:var(--green-soft); color:var(--green); }
+
+  /* ---------- App shell ---------- */
+  #app{ display:flex; min-height:100vh; }
+  .sidebar{
+    width:230px;
+    flex-shrink:0;
+    background:var(--bg-elevated);
+    border-right:1px solid var(--line);
+    padding:26px 18px;
+    display:flex;
+    flex-direction:column;
+  }
+  .plate{
+    border:1px solid var(--line-strong);
+    border-radius:var(--radius);
+    padding:14px 14px 12px;
+    margin-bottom:26px;
+  }
+  .plate .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    display:block;
+    margin-bottom:4px;
+  }
+  .plate h1{ font-size:18px; line-height:1.25; }
+  nav.navList{ display:flex; flex-direction:column; gap:4px; margin-bottom:auto; }
+  .navBtn{
+    text-align:left;
+    background:none;
+    border:none;
+    padding:11px 12px;
+    border-radius:var(--radius);
+    color:var(--ink-soft);
+    font-size:14px;
+    font-weight:500;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    border-left:2px solid transparent;
+  }
+  .navBtn .num{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+    opacity:.7;
+  }
+  .navBtn:hover{ background:var(--green-soft); color:var(--ink); }
+  .navBtn.active{
+    background:var(--green-soft);
+    color:var(--ink);
+    border-left:2px solid var(--green);
+    font-weight:600;
+  }
+  .navBtn.active .num{ color:var(--green); opacity:1; }
+  .logoutBtn{
+    margin-top:20px;
+    background:none;
+    border:1px dashed var(--line-strong);
+    border-radius:var(--radius);
+    padding:10px 12px;
+    font-size:13px;
+    color:var(--ink-soft);
+    text-align:left;
+  }
+  .logoutBtn:hover{ color:var(--red); border-color:var(--red); }
+
+  main{ flex:1; padding:34px 40px 60px; max-width:960px; }
+  .pageHead{ margin-bottom:26px; }
+  .pageHead .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--green);
+    display:block; margin-bottom:6px;
+  }
+  .pageHead h2{ font-size:28px; }
+  .pageHead p{ color:var(--ink-soft); font-size:14px; margin-top:6px; max-width:560px; }
+
+  .card{
+    background:var(--bg-elevated);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px 24px;
+    margin-bottom:20px;
+    box-shadow:var(--shadow);
+  }
+  .card h3{ font-size:16px; margin-bottom:14px; }
+  .cardRow{ display:flex; gap:18px; flex-wrap:wrap; }
+
+  /* stamp = big grade badge */
+  .stamp{
+    border:2px solid var(--green);
+    color:var(--green);
+    border-radius:50%;
+    width:96px; height:96px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    transform:rotate(-4deg);
+    flex-shrink:0;
+  }
+  .stamp.gold{ border-color:var(--gold); color:var(--gold); }
+  .stamp .val{ font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:600; line-height:1;}
+  .stamp .lbl{ font-size:9px; letter-spacing:.08em; text-transform:uppercase; margin-top:3px; }
+
+  .statBlock{ display:flex; align-items:center; gap:16px; }
+  .statText .big{ font-family:'IBM Plex Mono',monospace; font-size:26px; font-weight:600; }
+  .statText .cap{ font-size:12px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.05em; }
+
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  @media (max-width:820px){ .grid2{ grid-template-columns:1fr; } main{padding:24px;} #app{flex-direction:column;} .sidebar{width:100%; flex-direction:row; align-items:center; padding:14px 16px;} .plate{margin-bottom:0; margin-right:16px; flex:1;} nav.navList{flex-direction:row;} .logoutBtn{margin-top:0; margin-left:auto;} }
+
+  .subjRow{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:11px 0;
+    border-bottom:1px dotted var(--line-strong);
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .subjRow:last-child{ border-bottom:none; }
+  .subjRow .subjName{ font-size:14px; flex:1; min-width:150px; }
+  .subjRow .subjName .modeTag{
+    display:block; font-size:10px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--ink-soft); margin-top:2px;
+  }
+  .quarterGroup{ display:flex; gap:6px; align-items:center; }
+  .quarterGroup .qWrap{ display:flex; flex-direction:column; align-items:center; gap:2px; }
+  .quarterGroup .qWrap span{ font-size:9px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; }
+  .subjRow select{
+    width:58px;
+    padding:6px 4px;
+    border:1px solid var(--line-strong);
+    border-radius:var(--radius);
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    text-align:center;
+  }
+  .subjRow select.semesterSelect{ width:80px; }
+  .finalBadge{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-soft);
+    min-width:40px;
+    text-align:right;
+  }
+  .finalBadge.hasVal{ color:var(--green); }
+  .tagRow{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+  .tag{
+    font-size:12px; padding:4px 10px; border-radius:20px; font-weight:600;
+  }
+  .tag.strong{ background:var(--green-soft); color:var(--green); }
+  .tag.weak{ background:var(--red-soft); color:var(--red); }
+  .emptyState{
+    border:1px dashed var(--line-strong);
+    border-radius:var(--radius);
+    padding:26px;
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:14px;
+  }
+
+  .uploadZone{
+    border:1px dashed var(--line-strong);
+    border-radius:var(--radius);
+    padding:18px;
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  .uploadZone input[type=file]{ font-size:13px; color:var(--ink-soft); }
+  .note{ font-size:12px; color:var(--ink-soft); margin-top:8px; line-height:1.5;}
+  #photoPreview{ max-width:120px; border-radius:var(--radius); border:1px solid var(--line); display:none; }
+
+  .segmented{
+    display:inline-flex;
+    border:1px solid var(--line-strong);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .segmented button{
+    border:none; background:var(--bg-elevated); color:var(--ink-soft);
+    padding:9px 16px; font-size:13px; font-weight:600;
+  }
+  .segmented button.active{ background:var(--green); color:#fff; }
+  [data-theme="chalk"] .segmented button.active{ color:#0F1B14; }
+  .segmented button + button{ border-left:1px solid var(--line-strong); }
+
+  .fieldInline{ display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--line); }
+  .fieldInline:last-child{ border-bottom:none; }
+  .fieldInline .lbl{ font-size:14px; }
+  .fieldInline .sub{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+
+  .toast{
+    position:fixed; bottom:20px; right:20px;
+    background:var(--ink); color:var(--bg-elevated);
+    padding:12px 16px; border-radius:var(--radius);
+    font-size:13px; box-shadow:var(--shadow);
+    opacity:0; transform:translateY(8px);
+    transition:opacity .2s ease, transform .2s ease;
+    pointer-events:none; z-index:50;
+    max-width:320px;
+  }
+  .toast.show{ opacity:1; transform:translateY(0); }
+  .toast.error{ background:var(--red); }
+  .toast.ok{ background:var(--green); color:#fff; }
+
+  .chartWrap{ position:relative; height:340px; }
+</style>
+</head>
+<body data-theme="paper">
+
+<!-- ================= AUTH SCREEN ================= -->
+<div id="authScreen">
+  <div class="authCard">
+    <div class="authBrand">
+      <span class="eyebrow mono" data-i18n="eyebrowAuth">Классный журнал</span>
+      <h1 data-i18n="appTitle">Анализатор успеваемости</h1>
+    </div>
+
+    <div id="loginForm">
+      <div class="field">
+        <label data-i18n="emailLabel">Email</label>
+        <input type="email" id="loginEmail" autocomplete="username">
+      </div>
+      <div class="field">
+        <label data-i18n="passwordLabel">Пароль</label>
+        <input type="password" id="loginPassword" autocomplete="current-password">
+      </div>
+      <button class="btn" id="loginBtn" data-i18n="loginBtn">Войти</button>
+      <div class="formMsg" id="loginMsg"></div>
+      <div class="authSwitch">
+        <span data-i18n="noAccount">Нет аккаунта?</span>
+        <button id="toRegister" data-i18n="switchToRegister">Зарегистрироваться</button>
+      </div>
+    </div>
+
+    <div id="registerForm" class="hidden">
+      <div class="field">
+        <label data-i18n="emailLabel">Email</label>
+        <input type="email" id="regEmail" autocomplete="username">
+      </div>
+      <div class="field">
+        <label data-i18n="passwordLabel">Пароль</label>
+        <input type="password" id="regPassword" autocomplete="new-password">
+      </div>
+      <div class="field">
+        <label data-i18n="confirmPasswordLabel">Повторите пароль</label>
+        <input type="password" id="regPassword2" autocomplete="new-password">
+      </div>
+      <button class="btn" id="registerBtn" data-i18n="registerBtn">Создать аккаунт</button>
+      <div class="formMsg" id="registerMsg"></div>
+      <div class="authSwitch">
+        <span data-i18n="haveAccount">Уже есть аккаунт?</span>
+        <button id="toLogin" data-i18n="switchToLogin">Войти</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app" class="hidden">
+  <aside class="sidebar">
+    <div class="plate">
+      <span class="eyebrow mono" data-i18n="eyebrowAuth">Классный журнал</span>
+      <h1 id="studentNamePlate" data-i18n="appTitleShort">Мой дневник</h1>
+    </div>
+    <nav class="navList">
+      <button class="navBtn active" data-page="cabinet"><span class="num mono">01</span><span data-i18n="navCabinet">Личный кабинет</span></button>
+      <button class="navBtn" data-page="analyzer"><span class="num mono">02</span><span data-i18n="navAnalyzer">Анализатор оценок</span></button>
+      <button class="navBtn" data-page="settings"><span class="num mono">03</span><span data-i18n="navSettings">Настройки</span></button>
+    </nav>
+    <button class="logoutBtn" id="logoutBtn" data-i18n="logout">Выйти</button>
+  </aside>
+
+  <main>
+    <!-- ---- CABINET ---- -->
+    <section id="page-cabinet">
+      <div class="pageHead">
+        <span class="eyebrow mono" data-i18n="eyebrowCabinet">01 / Профиль</span>
+        <h2 data-i18n="navCabinet">Личный кабинет</h2>
+        <p data-i18n="cabinetLead">Данные ученика и сводная статистика успеваемости.</p>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <h3 data-i18n="profileTitle">Профиль ученика</h3>
+          <div class="field">
+            <label data-i18n="nameLabel">Имя</label>
+            <input type="text" id="profName">
+          </div>
+          <div class="cardRow">
+            <div class="field" style="flex:1;">
+              <label data-i18n="ageLabel">Возраст</label>
+              <input type="number" id="profAge" min="1" max="120">
+            </div>
+            <div class="field" style="flex:1;">
+              <label data-i18n="gradeLabel">Класс</label>
+              <input type="text" id="profGrade">
+            </div>
+          </div>
+          <div class="field">
+            <label data-i18n="emailLabel">Email</label>
+            <input type="email" id="profEmail" disabled>
+          </div>
+          <button class="btn secondary" id="saveProfileBtn" data-i18n="saveProfileBtn">Сохранить профиль</button>
+          <div class="formMsg" id="profileMsg"></div>
+        </div>
+
+        <div class="card">
+          <h3 data-i18n="statsTitle">Сводная статистика</h3>
+          <div id="cabinetStatsEmpty" class="emptyState" data-i18n="noStats">Оценки ещё не внесены. Перейдите в «Анализатор оценок», чтобы добавить данные.</div>
+          <div id="cabinetStats" class="hidden">
+            <div class="cardRow" style="margin-bottom:14px;">
+              <div class="statBlock">
+                <div class="stamp"><span class="val mono" id="cabAvg">-</span><span class="lbl" data-i18n="avgLabelShort">Средний</span></div>
+              </div>
+              <div class="statBlock">
+                <div class="stamp gold"><span class="val mono" id="cabGpa">-</span><span class="lbl">GPA</span></div>
+              </div>
+            </div>
+            <div class="tagRow" id="cabTags"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---- ANALYZER ---- -->
+    <section id="page-analyzer" class="hidden">
+      <div class="pageHead">
+        <span class="eyebrow mono" data-i18n="eyebrowAnalyzer">02 / Анализ</span>
+        <h2 data-i18n="navAnalyzer">Анализатор оценок</h2>
+        <p data-i18n="analyzerLead">Внесите оценки вручную — по четвертям или за полугодие — и получите средний балл, GPA и разбор по предметам.</p>
+      </div>
+
+      <div class="card">
+        <h3 data-i18n="uploadTitle">Фото табеля</h3>
+        <div class="uploadZone">
+          <div>
+            <label style="font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); display:block; margin-bottom:6px;" data-i18n="uploadPhotoLabel">Фото табеля</label>
+            <input type="file" id="photoInput" accept="image/*">
+          </div>
+          <img id="photoPreview">
+        </div>
+        <p class="note" data-i18n="uploadNote">Фото сохраняется только как превью для памяти — автоматическое распознавание оценок пока не подключено к серверу. Оценки нужно внести вручную в форме ниже.</p>
+      </div>
+
+      <div class="card">
+        <h3 data-i18n="manualTitle">Оценки по предметам</h3>
+        <p class="note" data-i18n="manualHint">Для большинства предметов вносятся оценки за 4 четверти — итог считается как их среднее. Для истории (всемирной), права и русского языка вносится только оценка за полугодие.</p>
+        <div id="subjectForm" style="margin-top:10px;"></div>
+        <button class="btn" id="saveSubjBtn" style="margin-top:16px;" data-i18n="saveGradesBtn">Сохранить и рассчитать</button>
+        <div class="formMsg" id="subjMsg"></div>
+      </div>
+
+      <div class="card" id="resultsCard" style="display:none;">
+        <h3 data-i18n="resultsTitle">Результат анализа</h3>
+        <div class="cardRow" style="margin-bottom:18px;">
+          <div class="statBlock">
+            <div class="stamp"><span class="val mono" id="resAvg">-</span><span class="lbl" data-i18n="avgLabelShort">Средний</span></div>
+            <div class="statText">
+              <div class="cap" data-i18n="avgLabelFull">Средний балл</div>
+            </div>
+          </div>
+          <div class="statBlock">
+            <div class="stamp gold"><span class="val mono" id="resGpa">-</span><span class="lbl">GPA</span></div>
+            <div class="statText">
+              <div class="cap" data-i18n="gpaLabelFull">GPA (шкала 4.0)</div>
+            </div>
+          </div>
+        </div>
+        <div class="chartWrap"><div id="subjChart" style="width:100%;height:100%;"></div></div>
+        <div style="margin-top:16px;">
+          <div class="cap" style="font-size:12px; text-transform:uppercase; color:var(--ink-soft); margin-bottom:6px;" data-i18n="strongWeakLabel">Сильные и слабые предметы</div>
+          <div class="tagRow" id="resTags"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---- SETTINGS ---- -->
+    <section id="page-settings" class="hidden">
+      <div class="pageHead">
+        <span class="eyebrow mono" data-i18n="eyebrowSettings">03 / Настройки</span>
+        <h2 data-i18n="navSettings">Настройки</h2>
+        <p data-i18n="settingsLead">Оформление, язык интерфейса и параметры подключения.</p>
+      </div>
+
+      <div class="card">
+        <div class="fieldInline">
+          <div>
+            <div class="lbl" data-i18n="themeLabel">Тема оформления</div>
+            <div class="sub" data-i18n="themeSub">Бумага для дневного режима, доска — для тёмного.</div>
+          </div>
+          <div class="segmented" id="themeSwitch">
+            <button data-theme="paper" class="active" data-i18n="themePaper">Бумага</button>
+            <button data-theme="chalk" data-i18n="themeChalk">Доска</button>
+          </div>
+        </div>
+
+        <div class="fieldInline">
+          <div>
+            <div class="lbl" data-i18n="langLabel">Язык интерфейса</div>
+            <div class="sub" data-i18n="langSub">Переключение языка карточек и меню.</div>
+          </div>
+          <div class="segmented" id="langSwitch">
+            <button data-lang="ru" class="active">RU</button>
+            <button data-lang="kk">KZ</button>
+            <button data-lang="en">EN</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 data-i18n="apiTitle">Подключение к серверу</h3>
+        <div class="field">
+          <label data-i18n="apiLabel">Адрес API</label>
+          <input type="text" id="apiBaseInput" placeholder="http://localhost:8080">
+        </div>
+        <button class="btn secondary" id="saveApiBtn" data-i18n="saveApiBtn">Сохранить адрес</button>
+        <p class="note" data-i18n="apiNote">Убедитесь, что сервер запущен и разрешает запросы с этого адреса (CORS).</p>
+      </div>
+
+      <div class="card" style="border-color:var(--red);">
+        <h3 style="color:var(--red);" data-i18n="dangerTitle">Опасная зона</h3>
+        <p class="note" data-i18n="dangerNote">Удаление аккаунта необратимо: профиль и все оценки будут стёрты.</p>
+        <button class="btn danger" id="deleteAccBtn" data-i18n="deleteAccBtn">Удалить аккаунт</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ STATE ============ */
+let state = {
+  token: localStorage.getItem('token') || null,
+  apiBase: localStorage.getItem('apiBase') || 'http://localhost:8080',
+  lang: localStorage.getItem('lang') || 'ru',
+  theme: localStorage.getItem('theme') || 'paper',
+  hasSubjects: false,
+  subjectData: {},   // final grade per subject key, as sent to/from backend: {key: '5'}
+  details: {},       // per-subject breakdown: {key: {q1,q2,q3,q4}} or {key: {sem1,sem2}}
+};
+
+/* mode: 'quarter' -> 4 четверти, среднее округляется до целого
+   mode: 'semester' -> одна оценка за полугодие */
+const SUBJECTS = [
+  { key:'alg',    mode:'quarter',  ru:'Алгебра',                 kk:'Алгебра',              en:'Algebra' },
+  { key:'bio',    mode:'quarter',  ru:'Биология',                kk:'Биология',             en:'Biology' },
+  { key:'whis',   mode:'semester', ru:'Всемирная история',       kk:'Дүниежүзі тарихы',     en:'World History' },
+  { key:'geo',    mode:'quarter',  ru:'География',               kk:'География',           en:'Geography' },
+  { key:'lang',   mode:'quarter',  ru:'Иностранный язык',        kk:'Шет тілі',             en:'Foreign Language' },
+  { key:'it',     mode:'quarter',  ru:'Информатика',             kk:'Информатика',         en:'Computer Science' },
+  { key:'khis',   mode:'quarter',  ru:'История Казахстана',      kk:'Қазақстан тарихы',    en:'History of Kazakhstan' },
+  { key:'kaz',    mode:'quarter',  ru:'Казахский язык',          kk:'Қазақ тілі',          en:'Kazakh Language' },
+  { key:'rights', mode:'semester', ru:'Основы права',            kk:'Құқық негіздері',     en:'Law Basics' },
+  { key:'lit',    mode:'quarter',  ru:'Литература',              kk:'Әдебиет',             en:'Literature' },
+  { key:'rus',    mode:'semester', ru:'Русский язык',            kk:'Орыс тілі',           en:'Russian Language' },
+  { key:'phys',   mode:'quarter',  ru:'Физика',                  kk:'Физика',              en:'Physics' },
+  { key:'chem',   mode:'quarter',  ru:'Химия',                   kk:'Химия',               en:'Chemistry' },
+];
+
+const I18N = {
+  ru: {
+    eyebrowAuth:'Классный журнал', appTitle:'Анализатор успеваемости', appTitleShort:'Мой дневник',
+    emailLabel:'Email', passwordLabel:'Пароль', confirmPasswordLabel:'Повторите пароль',
+    loginBtn:'Войти', registerBtn:'Создать аккаунт', noAccount:'Нет аккаунта?', haveAccount:'Уже есть аккаунт?',
+    switchToRegister:'Зарегистрироваться', switchToLogin:'Войти',
+    navCabinet:'Личный кабинет', navAnalyzer:'Анализатор оценок', navSettings:'Настройки', logout:'Выйти',
+    eyebrowCabinet:'01 / Профиль', cabinetLead:'Данные ученика и сводная статистика успеваемости.',
+    profileTitle:'Профиль ученика', nameLabel:'Имя', ageLabel:'Возраст', gradeLabel:'Класс',
+    saveProfileBtn:'Сохранить профиль', statsTitle:'Сводная статистика',
+    noStats:'Оценки ещё не внесены. Перейдите в «Анализатор оценок», чтобы добавить данные.',
+    avgLabelShort:'Средний', avgLabelFull:'Средний балл (по предметам)', gpaLabelFull:'GPA (5-балльная шкала, по всем оценкам)',
+    eyebrowAnalyzer:'02 / Анализ', analyzerLead:'Внесите оценки вручную — по четвертям или за полугодие — и получите средний балл, GPA и разбор по предметам.',
+    uploadTitle:'Фото табеля', uploadPhotoLabel:'Фото табеля',
+    uploadNote:'Фото сохраняется только как превью для памяти — автоматическое распознавание оценок пока не подключено к серверу. Оценки нужно внести вручную в форме ниже.',
+    manualTitle:'Оценки по предметам',
+    manualHint:'Для большинства предметов вносятся оценки за 4 четверти — итог считается как их среднее. Для истории (всемирной), права и русского языка вносятся оценки за 1 и 2 полугодие.',
+    saveGradesBtn:'Сохранить и рассчитать', resultsTitle:'Результат анализа',
+    strongWeakLabel:'Сильные и слабые предметы',
+    eyebrowSettings:'03 / Настройки', settingsLead:'Оформление, язык интерфейса и параметры подключения.',
+    themeLabel:'Тема оформления', themeSub:'Бумага для дневного режима, доска — для тёмного.',
+    themePaper:'Бумага', themeChalk:'Доска',
+    langLabel:'Язык интерфейса', langSub:'Переключение языка карточек и меню.',
+    apiTitle:'Подключение к серверу', apiLabel:'Адрес API', saveApiBtn:'Сохранить адрес',
+    apiNote:'Убедитесь, что сервер запущен и разрешает запросы с этого адреса (CORS).',
+    dangerTitle:'Опасная зона', dangerNote:'Удаление аккаунта необратимо: профиль и все оценки будут стёрты.',
+    deleteAccBtn:'Удалить аккаунт',
+    strongTag:'сильный', weakTag:'требует внимания',
+    q1:'Ч1', q2:'Ч2', q3:'Ч3', q4:'Ч4', sem1:'1 п/г', sem2:'2 п/г', quarterMode:'4 четверти', semesterMode:'2 полугодия',
+    msgFillCreds:'Заполните email и пароль', msgPwdMismatch:'Пароли не совпадают',
+    msgRegisterOk:'Аккаунт создан, теперь войдите', msgLoginFail:'Неверный email или пароль',
+    msgProfileSaved:'Профиль сохранён', msgGradesSaved:'Оценки сохранены',
+    msgConfirmDelete:'Удалить аккаунт без возможности восстановления?', msgApiSaved:'Адрес сохранён',
+    msgErrorGeneric:'Что-то пошло не так',
+    noGrade:'—',
+  },
+  kk: {
+    eyebrowAuth:'Сынып журналы', appTitle:'Үлгерімді талдау', appTitleShort:'Менің күнделігім',
+    emailLabel:'Email', passwordLabel:'Құпия сөз', confirmPasswordLabel:'Құпия сөзді қайталаңыз',
+    loginBtn:'Кіру', registerBtn:'Тіркелу', noAccount:'Аккаунтыңыз жоқ па?', haveAccount:'Аккаунтыңыз бар ма?',
+    switchToRegister:'Тіркелу', switchToLogin:'Кіру',
+    navCabinet:'Жеке кабинет', navAnalyzer:'Бағаларды талдау', navSettings:'Баптаулар', logout:'Шығу',
+    eyebrowCabinet:'01 / Профиль', cabinetLead:'Оқушы туралы деректер және жалпы үлгерім статистикасы.',
+    profileTitle:'Оқушы профилі', nameLabel:'Аты', ageLabel:'Жасы', gradeLabel:'Сынып',
+    saveProfileBtn:'Профильді сақтау', statsTitle:'Жалпы статистика',
+    noStats:'Бағалар әлі енгізілмеген. Деректерді қосу үшін «Бағаларды талдау» бөліміне өтіңіз.',
+    avgLabelShort:'Орташа', avgLabelFull:'Орташа балл (пәндер бойынша)', gpaLabelFull:'GPA (5-балдық шкала, барлық бағалар бойынша)',
+    eyebrowAnalyzer:'02 / Талдау', analyzerLead:'Бағаларды қолмен енгізіңіз — тоқсан немесе жартыжылдық бойынша — орташа балл, GPA және пәндер бойынша талдау аласыз.',
+    uploadTitle:'Табель фотосы', uploadPhotoLabel:'Табель фотосы',
+    uploadNote:'Фото тек естелік ретінде сақталады — бағаларды автоматты тану серверге әлі қосылмаған. Бағаларды төмендегі форманы қолмен толтырыңыз.',
+    manualTitle:'Пәндер бойынша бағалар',
+    manualHint:'Көптеген пәндер үшін 4 тоқсанның бағасы енгізіледі — қорытынды солардың орташасы. Дүниежүзі тарихы, құқық негіздері және орыс тілі үшін 1 және 2 жартыжылдық бағалары енгізіледі.',
+    saveGradesBtn:'Сақтау және есептеу', resultsTitle:'Талдау нәтижесі',
+    strongWeakLabel:'Мықты және әлсіз пәндер',
+    eyebrowSettings:'03 / Баптаулар', settingsLead:'Безендіру, интерфейс тілі және байланыс параметрлері.',
+    themeLabel:'Безендіру тақырыбы', themeSub:'Күндізгі режимге — қағаз, түнгіге — тақта.',
+    themePaper:'Қағаз', themeChalk:'Тақта',
+    langLabel:'Интерфейс тілі', langSub:'Карточкалар мен мәзір тілін ауыстыру.',
+    apiTitle:'Серверге қосылу', apiLabel:'API мекенжайы', saveApiBtn:'Мекенжайды сақтау',
+    apiNote:'Сервердің іске қосылғанына және осы мекенжайдан сұрауларға рұқсат ететініне көз жеткізіңіз (CORS).',
+    dangerTitle:'Қауіпті аймақ', dangerNote:'Аккаунтты жою қайтымсыз: профиль және барлық бағалар өшіріледі.',
+    deleteAccBtn:'Аккаунтты жою',
+    strongTag:'мықты', weakTag:'назар аудару қажет',
+    q1:'Т1', q2:'Т2', q3:'Т3', q4:'Т4', sem1:'1 ж/ж', sem2:'2 ж/ж', quarterMode:'4 тоқсан', semesterMode:'2 жартыжылдық',
+    msgFillCreds:'Email мен құпия сөзді толтырыңыз', msgPwdMismatch:'Құпия сөздер сәйкес келмейді',
+    msgRegisterOk:'Аккаунт құрылды, енді кіріңіз', msgLoginFail:'Email немесе құпия сөз қате',
+    msgProfileSaved:'Профиль сақталды', msgGradesSaved:'Бағалар сақталды',
+    msgConfirmDelete:'Аккаунтты қалпына келтірусіз жоясыз ба?', msgApiSaved:'Мекенжай сақталды',
+    msgErrorGeneric:'Бірдеңе дұрыс болмады',
+    noGrade:'—',
+  },
+  en: {
+    eyebrowAuth:'Class Register', appTitle:'Grade Analyzer', appTitleShort:'My Journal',
+    emailLabel:'Email', passwordLabel:'Password', confirmPasswordLabel:'Confirm password',
+    loginBtn:'Log in', registerBtn:'Create account', noAccount:"Don't have an account?", haveAccount:'Already have an account?',
+    switchToRegister:'Sign up', switchToLogin:'Log in',
+    navCabinet:'Dashboard', navAnalyzer:'Grade Analyzer', navSettings:'Settings', logout:'Log out',
+    eyebrowCabinet:'01 / Profile', cabinetLead:'Student info and overall performance statistics.',
+    profileTitle:'Student profile', nameLabel:'Name', ageLabel:'Age', gradeLabel:'Grade / class',
+    saveProfileBtn:'Save profile', statsTitle:'Summary statistics',
+    noStats:'No grades yet. Go to “Grade Analyzer” to add your data.',
+    avgLabelShort:'Average', avgLabelFull:'Average score (per subject)', gpaLabelFull:'GPA (5-point scale, all grades)',
+    eyebrowAnalyzer:'02 / Analysis', analyzerLead:'Enter grades manually — by quarter or by semester — and get your average, GPA, and a subject-by-subject breakdown.',
+    uploadTitle:'Report card photo', uploadPhotoLabel:'Report card photo',
+    uploadNote:'The photo is stored only as a preview for your own reference — automatic grade recognition isn\'t connected to the server yet. Enter grades manually in the form below.',
+    manualTitle:'Grades by subject',
+    manualHint:'Most subjects take grades for all 4 quarters — the final grade is their average. World History, Law Basics and Russian Language take grades for semester 1 and semester 2.',
+    saveGradesBtn:'Save and calculate', resultsTitle:'Analysis result',
+    strongWeakLabel:'Strong and weak subjects',
+    eyebrowSettings:'03 / Settings', settingsLead:'Appearance, interface language and connection settings.',
+    themeLabel:'Theme', themeSub:'Paper for light mode, chalkboard for dark.',
+    themePaper:'Paper', themeChalk:'Chalkboard',
+    langLabel:'Interface language', langSub:'Switch the language of cards and menus.',
+    apiTitle:'Server connection', apiLabel:'API address', saveApiBtn:'Save address',
+    apiNote:'Make sure the server is running and allows requests from this address (CORS).',
+    dangerTitle:'Danger zone', dangerNote:'Deleting your account is irreversible: profile and all grades will be erased.',
+    deleteAccBtn:'Delete account',
+    strongTag:'strong', weakTag:'needs attention',
+    q1:'Q1', q2:'Q2', q3:'Q3', q4:'Q4', sem1:'Sem 1', sem2:'Sem 2', quarterMode:'4 quarters', semesterMode:'2 semesters',
+    msgFillCreds:'Fill in email and password', msgPwdMismatch:'Passwords do not match',
+    msgRegisterOk:'Account created, now log in', msgLoginFail:'Wrong email or password',
+    msgProfileSaved:'Profile saved', msgGradesSaved:'Grades saved',
+    msgConfirmDelete:'Delete your account permanently?', msgApiSaved:'Address saved',
+    msgErrorGeneric:'Something went wrong',
+    noGrade:'—',
+  }
+};
+
+function t(key){ return (I18N[state.lang] && I18N[state.lang][key]) || I18N.ru[key] || key; }
+function subjName(key){
+  const s = SUBJECTS.find(x=>x.key===key);
+  if(!s) return key;
+  return s[state.lang] || s.ru;
+}
+
+/* ============ i18n apply ============ */
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    el.textContent = t(el.getAttribute('data-i18n'));
+  });
+  document.documentElement.lang = state.lang === 'kk' ? 'kk' : (state.lang === 'en' ? 'en' : 'ru');
+  renderSubjectForm();
+  if(state.hasSubjects) renderResults();
+}
+
+/* ============ toast ============ */
+let toastTimer=null;
+function toast(msg, type){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (type ? ' '+type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ el.classList.remove('show'); }, 3200);
+}
+
+/* ============ API helper ============ */
+async function api(path, opts={}){
+  const headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
+  if(state.token) headers['Authorization'] = 'Bearer ' + state.token;
+  const res = await fetch(state.apiBase + path, Object.assign({}, opts, { headers }));
+  let data = null;
+  try{ data = await res.json(); }catch(e){ /* no body */ }
+  if(!res.ok){
+    const err = new Error((data && data.error) || res.statusText);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+/* ============ AUTH ============ */
+document.getElementById('toRegister').addEventListener('click', ()=>{
+  document.getElementById('loginForm').classList.add('hidden');
+  document.getElementById('registerForm').classList.remove('hidden');
+});
+document.getElementById('toLogin').addEventListener('click', ()=>{
+  document.getElementById('registerForm').classList.add('hidden');
+  document.getElementById('loginForm').classList.remove('hidden');
+});
+
+function showFormMsg(id, msg, ok){
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'formMsg show ' + (ok ? 'ok':'error');
+}
+
+document.getElementById('registerBtn').addEventListener('click', async ()=>{
+  const email = document.getElementById('regEmail').value.trim();
+  const pwd = document.getElementById('regPassword').value;
+  const pwd2 = document.getElementById('regPassword2').value;
+  if(!email || !pwd){ showFormMsg('registerMsg', t('msgFillCreds'), false); return; }
+  if(pwd !== pwd2){ showFormMsg('registerMsg', t('msgPwdMismatch'), false); return; }
+  try{
+    await api('/register', { method:'POST', body: JSON.stringify({ email, password: pwd }) });
+    showFormMsg('registerMsg', t('msgRegisterOk'), true);
+    setTimeout(()=>{
+      document.getElementById('registerForm').classList.add('hidden');
+      document.getElementById('loginForm').classList.remove('hidden');
+      document.getElementById('loginEmail').value = email;
+    }, 700);
+  }catch(e){
+    showFormMsg('registerMsg', e.message || t('msgErrorGeneric'), false);
+  }
+});
+
+document.getElementById('loginBtn').addEventListener('click', async ()=>{
+  const email = document.getElementById('loginEmail').value.trim();
+  const pwd = document.getElementById('loginPassword').value;
+  if(!email || !pwd){ showFormMsg('loginMsg', t('msgFillCreds'), false); return; }
+  try{
+    const data = await api('/login', { method:'POST', body: JSON.stringify({ email, password: pwd }) });
+    state.token = data.token;
+    localStorage.setItem('token', state.token);
+    await enterApp();
+  }catch(e){
+    showFormMsg('loginMsg', t('msgLoginFail'), false);
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', ()=>{
+  state.token = null;
+  localStorage.removeItem('token');
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('authScreen').classList.remove('hidden');
+});
+
+/* ============ NAV ============ */
+document.querySelectorAll('.navBtn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.navBtn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const page = btn.getAttribute('data-page');
+    ['cabinet','analyzer','settings'].forEach(p=>{
+      document.getElementById('page-'+p).classList.toggle('hidden', p!==page);
+    });
+  });
+});
+
+/* ============ SUBJECT DETAILS (quarters / semester) ============ */
+function loadDetailsFromStorage(){
+  try{ return JSON.parse(localStorage.getItem('gradeDetails') || '{}'); }
+  catch(e){ return {}; }
+}
+function saveDetailsToStorage(){
+  localStorage.setItem('gradeDetails', JSON.stringify(state.details));
+}
+
+// seeds state.details from stored breakdown, falling back to the backend's final grade
+function initDetails(){
+  const stored = loadDetailsFromStorage();
+  const details = {};
+  SUBJECTS.forEach(s=>{
+    const backendFinal = state.subjectData[s.key] || '';
+    if(s.mode === 'semester'){
+      const d = stored[s.key] || {};
+      const hasStored = d.sem1 || d.sem2;
+      if(hasStored){
+        details[s.key] = { sem1:d.sem1||'', sem2:d.sem2||'' };
+      } else {
+        details[s.key] = { sem1: backendFinal || '', sem2:'' };
+      }
+    } else {
+      const d = stored[s.key] || {};
+      const hasStored = d.q1 || d.q2 || d.q3 || d.q4;
+      if(hasStored){
+        details[s.key] = { q1:d.q1||'', q2:d.q2||'', q3:d.q3||'', q4:d.q4||'' };
+      } else {
+        details[s.key] = { q1:'', q2:'', q3:'', q4:'' };
+      }
+    }
+  });
+  state.details = details;
+}
+
+function computeFinalGrade(key){
+  const s = SUBJECTS.find(x=>x.key===key);
+  const d = state.details[key];
+  if(!d) return '';
+  const parts = s.mode === 'semester' ? [d.sem1, d.sem2] : [d.q1, d.q2, d.q3, d.q4];
+  const vals = parts.filter(v=> v==='2'||v==='3'||v==='4'||v==='5').map(Number);
+  if(!vals.length) return '';
+  const avg = vals.reduce((a,b)=>a+b,0) / vals.length;
+  let rounded = Math.round(avg);
+  if(rounded < 2) rounded = 2;
+  if(rounded > 5) rounded = 5;
+  return String(rounded);
+}
+
+/* ============ SUBJECT FORM ============ */
+function renderSubjectForm(){
+  const wrap = document.getElementById('subjectForm');
+  wrap.innerHTML = '';
+  SUBJECTS.forEach(s=>{
+    const d = state.details[s.key] || (s.mode==='semester' ? {sem:''} : {q1:'',q2:'',q3:'',q4:''});
+    const final = computeFinalGrade(s.key);
+    const row = document.createElement('div');
+    row.className = 'subjRow';
+
+    let inputsHtml = '';
+    if(s.mode === 'semester'){
+      inputsHtml = '<div class="quarterGroup">' + ['sem1','sem2'].map(part=>`
+          <div class="qWrap">
+            <span>${t(part)}</span>
+            <select class="semesterSelect" data-key="${s.key}" data-part="${part}">
+              <option value="">${t('noGrade')}</option>
+              <option value="5" ${d[part]==='5'?'selected':''}>5</option>
+              <option value="4" ${d[part]==='4'?'selected':''}>4</option>
+              <option value="3" ${d[part]==='3'?'selected':''}>3</option>
+              <option value="2" ${d[part]==='2'?'selected':''}>2</option>
+            </select>
+          </div>`).join('') + '</div>';
+    } else {
+      inputsHtml = '<div class="quarterGroup">' + ['q1','q2','q3','q4'].map(part=>`
+          <div class="qWrap">
+            <span>${t(part)}</span>
+            <select data-key="${s.key}" data-part="${part}">
+              <option value="">${t('noGrade')}</option>
+              <option value="5" ${d[part]==='5'?'selected':''}>5</option>
+              <option value="4" ${d[part]==='4'?'selected':''}>4</option>
+              <option value="3" ${d[part]==='3'?'selected':''}>3</option>
+              <option value="2" ${d[part]==='2'?'selected':''}>2</option>
+            </select>
+          </div>`).join('') + '</div>';
+    }
+
+    row.innerHTML = `
+      <span class="subjName">${subjName(s.key)}<span class="modeTag">${s.mode==='semester' ? t('semesterMode') : t('quarterMode')}</span></span>
+      ${inputsHtml}
+      <span class="finalBadge ${final?'hasVal':''}" data-final="${s.key}">${final || t('noGrade')}</span>
+    `;
+    wrap.appendChild(row);
+
+    row.querySelectorAll('select').forEach(sel=>{
+      sel.addEventListener('change', ()=>{
+        const key = sel.getAttribute('data-key');
+        const part = sel.getAttribute('data-part');
+        state.details[key][part] = sel.value;
+        const finalVal = computeFinalGrade(key);
+        const badge = row.querySelector(`[data-final="${key}"]`);
+        badge.textContent = finalVal || t('noGrade');
+        badge.classList.toggle('hasVal', !!finalVal);
+      });
+    });
+  });
+}
+
+/* ============ CSV upload removed — manual entry only ============ */
+
+document.getElementById('photoInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = document.getElementById('photoPreview');
+    img.src = reader.result;
+    img.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+});
+
+/* ============ STATS ============ */
+// Средний балл — среднее по итоговым оценкам предметов (1 значение на предмет).
+// GPA — среднее по ВСЕМ выставленным оценкам (все четверти + полугодия), 5-балльная шкала,
+// без перевода в 4.0 — просто более "взвешенная" версия среднего с учётом количества оценок.
+function collectRawGrades(){
+  const raw = [];
+  SUBJECTS.forEach(s=>{
+    const d = state.details[s.key];
+    if(!d) return;
+    const parts = s.mode === 'semester' ? [d.sem1, d.sem2] : [d.q1, d.q2, d.q3, d.q4];
+    parts.forEach(v=>{
+      if(v === '2'||v === '3'||v === '4'||v === '5') raw.push(Number(v));
+    });
+  });
+  return raw;
+}
+
+function computeStats(data){
+  const entries = SUBJECTS
+    .map(s => ({ key:s.key, grade: data[s.key] }))
+    .filter(e => e.grade === '2' || e.grade === '3' || e.grade === '4' || e.grade === '5');
+  if(!entries.length) return null;
+  const avg = entries.reduce((sum,e)=> sum + parseInt(e.grade), 0) / entries.length;
+  const raw = collectRawGrades();
+  const gpa = raw.length ? raw.reduce((a,b)=>a+b,0) / raw.length : avg;
+  const strong = entries.filter(e=> e.grade === '5').map(e=>e.key);
+  const weak = entries.filter(e=> e.grade === '2' || e.grade === '3').map(e=>e.key);
+  return { avg, gpa, strong, weak, entries };
+}
+
+function renderTags(container, strong, weak){
+  container.innerHTML = '';
+  strong.forEach(key=>{
+    const el = document.createElement('span');
+    el.className = 'tag strong';
+    el.textContent = subjName(key) + ' · ' + t('strongTag');
+    container.appendChild(el);
+  });
+  weak.forEach(key=>{
+    const el = document.createElement('span');
+    el.className = 'tag weak';
+    el.textContent = subjName(key) + ' · ' + t('weakTag');
+    container.appendChild(el);
+  });
+  if(!strong.length && !weak.length){
+    container.innerHTML = '<span style="font-size:13px; color:var(--ink-soft);">—</span>';
+  }
+}
+
+function renderResults(){
+  const finalData = {};
+  SUBJECTS.forEach(s => finalData[s.key] = computeFinalGrade(s.key));
+  const stats = computeStats(finalData);
+
+  // cabinet card
+  const cabEmpty = document.getElementById('cabinetStatsEmpty');
+  const cabStats = document.getElementById('cabinetStats');
+  if(!stats){
+    cabEmpty.classList.remove('hidden');
+    cabStats.classList.add('hidden');
+  } else {
+    cabEmpty.classList.add('hidden');
+    cabStats.classList.remove('hidden');
+    document.getElementById('cabAvg').textContent = stats.avg.toFixed(2);
+    document.getElementById('cabGpa').textContent = stats.gpa.toFixed(2);
+    renderTags(document.getElementById('cabTags'), stats.strong, stats.weak);
+  }
+
+  // analyzer results card
+  const resultsCard = document.getElementById('resultsCard');
+  if(!stats){
+    resultsCard.style.display = 'none';
+    return;
+  }
+  resultsCard.style.display = 'block';
+  document.getElementById('resAvg').textContent = stats.avg.toFixed(2);
+  document.getElementById('resGpa').textContent = stats.gpa.toFixed(2);
+  renderTags(document.getElementById('resTags'), stats.strong, stats.weak);
+  drawChart(stats.entries);
+}
+
+function escapeXml(str){
+  return String(str).replace(/[<>&'"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[c]));
+}
+
+function drawChart(entries){
+  const container = document.getElementById('subjChart');
+  const ordered = SUBJECTS.map(s => entries.find(e => e.key === s.key)).filter(Boolean);
+  const n = ordered.length;
+  if(!n){ container.innerHTML = ''; return; }
+
+  const size = 480, center = size/2, radius = size/2 - 78;
+  const maxVal = 5;
+  const angleStep = (2*Math.PI) / n;
+  const startAngle = -Math.PI/2;
+
+  const lineColor = getCss('--line');
+  const inkSoft = getCss('--ink-soft');
+  const green = getCss('--green');
+  const gold = getCss('--gold');
+  const red = getCss('--red');
+
+  function pointFor(i, value){
+    const angle = startAngle + i*angleStep;
+    const r = radius * (value/maxVal);
+    return { x: center + r*Math.cos(angle), y: center + r*Math.sin(angle) };
+  }
+
+  let svg = `<svg viewBox="0 0 ${size} ${size}" width="100%" height="100%" style="overflow:visible;">`;
+
+  // background grid rings (1..5)
+  for(let ring=1; ring<=5; ring++){
+    const pts = [];
+    for(let i=0;i<n;i++) pts.push(pointFor(i, ring));
+    svg += `<polygon points="${pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}" fill="none" stroke="${lineColor}" stroke-width="1"/>`;
+  }
+
+  // axis spokes
+  for(let i=0;i<n;i++){
+    const p = pointFor(i, maxVal);
+    svg += `<line x1="${center}" y1="${center}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}" stroke="${lineColor}" stroke-width="1"/>`;
+  }
+
+  // data polygon
+  const dataPts = ordered.map((e,i)=> pointFor(i, parseInt(e.grade)));
+  svg += `<polygon points="${dataPts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}" fill="${green}2E" stroke="${green}" stroke-width="2.5"/>`;
+
+  // points colored by grade
+  ordered.forEach((e,i)=>{
+    const p = dataPts[i];
+    const color = e.grade==='5' ? green : (e.grade==='4' ? gold : red);
+    svg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="${color}"/>`;
+  });
+
+  // axis labels
+  ordered.forEach((e,i)=>{
+    const lp = pointFor(i, maxVal + 1.15);
+    let anchor = 'middle';
+    if(lp.x > center + 6) anchor = 'start';
+    else if(lp.x < center - 6) anchor = 'end';
+    svg += `<text x="${lp.x.toFixed(1)}" y="${lp.y.toFixed(1)}" font-size="10.5" fill="${inkSoft}" text-anchor="${anchor}" dominant-baseline="middle" font-family="Inter, sans-serif">${escapeXml(subjName(e.key))}</text>`;
+  });
+
+  svg += `</svg>`;
+  container.innerHTML = svg;
+}
+function getCss(varName){ return getComputedStyle(document.body).getPropertyValue(varName).trim(); }
+
+/* ============ SAVE SUBJECTS ============ */
+document.getElementById('saveSubjBtn').addEventListener('click', async ()=>{
+  const payload = {};
+  SUBJECTS.forEach(s => payload[s.key] = computeFinalGrade(s.key) || '');
+  state.subjectData = payload;
+  saveDetailsToStorage();
+  try{
+    if(state.hasSubjects){
+      await api('/subjects', { method:'PUT', body: JSON.stringify(payload) });
+    } else {
+      await api('/subjects', { method:'POST', body: JSON.stringify(payload) });
+      state.hasSubjects = true;
+    }
+    showFormMsg('subjMsg', t('msgGradesSaved'), true);
+    toast(t('msgGradesSaved'), 'ok');
+    renderResults();
+  }catch(e){
+    showFormMsg('subjMsg', e.message || t('msgErrorGeneric'), false);
+  }
+});
+
+/* ============ PROFILE ============ */
+document.getElementById('saveProfileBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('profName').value.trim();
+  const age = document.getElementById('profAge').value.trim();
+  const grade = document.getElementById('profGrade').value.trim();
+  try{
+    await api('/user', { method:'PUT', body: JSON.stringify({ name, age: age?parseInt(age):0, grade }) });
+    showFormMsg('profileMsg', t('msgProfileSaved'), true);
+    toast(t('msgProfileSaved'), 'ok');
+    loadMe();
+  }catch(e){
+    showFormMsg('profileMsg', e.message || t('msgErrorGeneric'), false);
+  }
+});
+
+document.getElementById('deleteAccBtn').addEventListener('click', async ()=>{
+  if(!confirm(t('msgConfirmDelete'))) return;
+  try{
+    await api('/user', { method:'DELETE' });
+    state.token = null;
+    localStorage.removeItem('token');
+    document.getElementById('app').classList.add('hidden');
+    document.getElementById('authScreen').classList.remove('hidden');
+  }catch(e){
+    toast(e.message || t('msgErrorGeneric'), 'error');
+  }
+});
+
+/* ============ SETTINGS: theme / lang / api ============ */
+document.getElementById('themeSwitch').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  const theme = btn.getAttribute('data-theme');
+  setTheme(theme);
+});
+document.getElementById('langSwitch').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button');
+  if(!btn) return;
+  const lang = btn.getAttribute('data-lang');
+  setLang(lang);
+});
+document.getElementById('saveApiBtn').addEventListener('click', ()=>{
+  const val = document.getElementById('apiBaseInput').value.trim();
+  if(val){
+    state.apiBase = val.replace(/\/$/,'');
+    localStorage.setItem('apiBase', state.apiBase);
+    toast(t('msgApiSaved'), 'ok');
+  }
+});
+
+function setTheme(theme){
+  state.theme = theme;
+  localStorage.setItem('theme', theme);
+  document.body.setAttribute('data-theme', theme);
+  document.querySelectorAll('#themeSwitch button').forEach(b=>{
+    b.classList.toggle('active', b.getAttribute('data-theme')===theme);
+  });
+  if(state.hasSubjects) renderResults();
+}
+
+function setLang(lang){
+  state.lang = lang;
+  localStorage.setItem('lang', lang);
+  document.querySelectorAll('#langSwitch button').forEach(b=>{
+    b.classList.toggle('active', b.getAttribute('data-lang')===lang);
+  });
+  applyI18n();
+}
+
+/* ============ BOOTSTRAP ============ */
+async function loadMe(){
+  try{
+    const user = await api('/user/me');
+    document.getElementById('profName').value = user.name || '';
+    document.getElementById('profAge').value = user.age || '';
+    document.getElementById('profGrade').value = user.grade || '';
+    document.getElementById('profEmail').value = user.email || '';
+    document.getElementById('studentNamePlate').textContent = user.name || t('appTitleShort');
+  }catch(e){ /* ignore */ }
+}
+
+async function loadSubjects(){
+  try{
+    const subj = await api('/subjects');
+    state.hasSubjects = true;
+    const data = {};
+    SUBJECTS.forEach(s => data[s.key] = subj[s.key] || '');
+    state.subjectData = data;
+  }catch(e){
+    state.hasSubjects = false;
+    state.subjectData = {};
+  }
+  initDetails();
+  renderSubjectForm();
+  renderResults();
+}
+
+async function enterApp(){
+  document.getElementById('authScreen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  await loadMe();
+  await loadSubjects();
+}
+
+(function init(){
+  document.getElementById('apiBaseInput').value = state.apiBase;
+  setTheme(state.theme);
+  setLang(state.lang);
+  if(state.token){
+    enterApp();
+  }
+})();
+</script>
+</body>
+</html>
